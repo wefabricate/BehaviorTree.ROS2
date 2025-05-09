@@ -494,13 +494,37 @@ inline NodeStatus RosActionNode<T>::tick()
     // THIRD case: result received, requested a stop
     if(result_.code != rclcpp_action::ResultCode::UNKNOWN)
     {
+      bool is_default_result = true;
+      if(result_.result != nullptr)
+      {
+        is_default_result = *(result_.result) == typename T::Result();
+      }
+
       if(result_.code == rclcpp_action::ResultCode::ABORTED)
       {
-        return CheckStatus(onFailure(ACTION_ABORTED));
+        // If the result is default assume was not set by the server before aborting.
+        if (is_default_result)
+        {
+          return CheckStatus(onFailure(ACTION_ABORTED));
+        }
+        // Else return the result received
+        else
+        {
+          return CheckStatus(onResultReceived(result_));
+        }
       }
       else if(result_.code == rclcpp_action::ResultCode::CANCELED)
       {
-        return CheckStatus(onFailure(ACTION_CANCELLED));
+        // If the result is default assume was not set by the server before cancelling.
+        if (is_default_result)
+        {
+          return CheckStatus(onFailure(ACTION_CANCELLED));
+        }
+        // Else return the result received
+        else
+        {
+          return CheckStatus(onResultReceived(result_));
+        }
       }
       else
       {
