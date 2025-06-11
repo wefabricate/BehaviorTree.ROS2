@@ -247,7 +247,7 @@ RosActionNode<T>::ActionClientInstance::ActionClientInstance(
     const rcl_action_client_options_t& action_client_options)
 {
   callback_group =
-      node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+      node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   callback_executor.add_callback_group(callback_group, node->get_node_base_interface());
   action_client = rclcpp_action::create_client<T>(node, action_name, callback_group,
                                                   action_client_options);
@@ -316,6 +316,9 @@ inline bool RosActionNode<T>::createClient(const std::string& action_name)
     client_instance_ =
         std::make_shared<ActionClientInstance>(node, action_name, action_client_options_);
     registry.insert_or_assign( action_client_key_, client_instance_ );
+
+    RCLCPP_INFO(logger(), "Node [%s] created action client [%s]", name().c_str(),
+                action_name.c_str());
   }
   else
   {
