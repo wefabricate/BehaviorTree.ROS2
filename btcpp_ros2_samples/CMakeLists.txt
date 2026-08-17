@@ -20,7 +20,14 @@ set(THIS_PACKAGE_DEPS
 ######################################################
 # Simple example showing how to use and customize the BtExecutionServer
 add_executable(sample_bt_executor src/sample_bt_executor.cpp)
-ament_target_dependencies(sample_bt_executor ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(sample_bt_executor PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(sample_bt_executor PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(sample_bt_executor SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 ######################################################
 # Build an Action Client that calls the sleep action (STATIC version)
@@ -28,37 +35,86 @@ ament_target_dependencies(sample_bt_executor ${THIS_PACKAGE_DEPS})
 add_executable(sleep_client
   src/sleep_action.cpp
   src/sleep_client.cpp)
-ament_target_dependencies(sleep_client ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(sleep_client PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(sleep_client PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(sleep_client SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 ######################################################
 # Build a client that call the sleep action (Plugin version)
 
 add_library(sleep_plugin SHARED src/sleep_action.cpp)
 target_compile_definitions(sleep_plugin PRIVATE  BT_PLUGIN_EXPORT )
-ament_target_dependencies(sleep_plugin ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(sleep_plugin PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(sleep_plugin PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(sleep_plugin SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 add_executable(sleep_client_dyn src/sleep_client.cpp)
 target_compile_definitions(sleep_client_dyn PRIVATE USE_SLEEP_PLUGIN )
-target_link_libraries(sleep_client_dyn sleep_plugin )
-ament_target_dependencies(sleep_client_dyn ${THIS_PACKAGE_DEPS})
+target_link_libraries(sleep_client_dyn PUBLIC sleep_plugin)
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(sleep_client_dyn PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(sleep_client_dyn PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(sleep_client_dyn SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 ######################################################
 # Build Server
 add_executable(sleep_server src/sleep_server.cpp)
-ament_target_dependencies(sleep_server ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(sleep_server PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(sleep_server PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(sleep_server SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 ######################################################
 # Build subscriber_test
 add_executable(subscriber_test src/subscriber_test.cpp)
-ament_target_dependencies(subscriber_test ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(subscriber_test PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(subscriber_test PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(subscriber_test SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 ######################################################
 # the SetBool test
 add_executable(bool_client src/bool_client.cpp src/set_bool_node.cpp)
-ament_target_dependencies(bool_client ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(bool_client PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(bool_client PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(bool_client SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 add_executable(bool_server src/bool_server.cpp )
-ament_target_dependencies(bool_server ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(bool_server PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(bool_server PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(bool_server SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 ######################################################
 # INSTALL

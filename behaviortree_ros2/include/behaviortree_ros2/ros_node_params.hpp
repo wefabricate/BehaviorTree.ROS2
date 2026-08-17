@@ -39,7 +39,7 @@ struct RosNodeParams
   // Default qos configuration for actions, services and topics
   rcl_action_client_options_t action_client_options =
       rcl_action_client_get_default_options();
-  rmw_qos_profile_t service_qos_profile = rmw_qos_profile_services_default;
+  rclcpp::QoS service_qos_profile = rclcpp::ServicesQoS();
   rclcpp::QoS topic_qos =
       rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
 

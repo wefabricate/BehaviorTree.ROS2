@@ -29,13 +29,20 @@ add_library(${PROJECT_NAME}
     src/bt_utils.cpp
     src/tree_execution_server.cpp )
 
-ament_target_dependencies(${PROJECT_NAME} ${THIS_PACKAGE_DEPS})
+foreach(_dep IN ITEMS ${THIS_PACKAGE_DEPS})
+  if(${_dep}_TARGETS)
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${${_dep}_TARGETS})
+  else()
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${${_dep}_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${${_dep}_INCLUDE_DIRS})
+  endif()
+endforeach()
 
 target_include_directories(${PROJECT_NAME} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(${PROJECT_NAME}  bt_executor_parameters)
+target_link_libraries(${PROJECT_NAME} PUBLIC bt_executor_parameters)
 
 
 ######################################################

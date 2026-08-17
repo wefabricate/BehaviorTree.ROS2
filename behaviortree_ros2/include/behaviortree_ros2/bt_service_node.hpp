@@ -144,7 +144,7 @@ protected:
   {
     ServiceClientInstance(std::shared_ptr<rclcpp::Node> node,
                           const std::string& service_name,
-                          const rmw_qos_profile_t& qos_profile);
+                          const rclcpp::QoS& qos_profile);
 
     ServiceClientPtr service_client;
     rclcpp::CallbackGroup::SharedPtr callback_group;
@@ -189,7 +189,7 @@ protected:
 
   std::weak_ptr<rclcpp::Node> node_;
   std::string service_name_;
-  rmw_qos_profile_t qos_profile_;
+  rclcpp::QoS qos_profile_;
   bool service_name_should_be_checked_ = false;
   const std::chrono::milliseconds service_timeout_;
   const std::chrono::milliseconds wait_for_service_timeout_;
@@ -213,7 +213,7 @@ private:
 template <class T>
 inline RosServiceNode<T>::ServiceClientInstance::ServiceClientInstance(
     std::shared_ptr<rclcpp::Node> node, const std::string& service_name,
-    const rmw_qos_profile_t& qos_profile)
+    const rclcpp::QoS& qos_profile)
 {
   callback_group =
       node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
