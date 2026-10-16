@@ -235,6 +235,9 @@ private:
   WrappedResult result_;
 
   bool createClient(const std::string& action_name);
+
+  /// Same as cancelGoal(), but expects getMutex() to be already locked by the caller
+  void cancelGoalLocked();
 };
 
 //----------------------------------------------------------------
@@ -392,6 +395,7 @@ inline NodeStatus RosActionNode<T>::tick()
 
     goal_received_ = false;
     future_goal_handle_ = {};
+    goal_handle_.reset();
     on_feedback_state_change_ = NodeStatus::RUNNING;
     result_ = {};
 
@@ -416,8 +420,11 @@ inline NodeStatus RosActionNode<T>::tick()
           emitWakeUpSignal();
         };
     //--------------------
+    // goal_options are created per goal, so this callback only fires for the goal sent
+    // by this node. Don't rely on goal_handle_ here: when the client is shared, another
+    // node's spin may process the result before this node has read its goal handle.
     goal_options.result_callback = [this](const WrappedResult& result) {
-      if(goal_handle_->get_goal_id() == result.goal_id)
+      if(!goal_handle_ || goal_handle_->get_goal_id() == result.goal_id)
       {
         RCLCPP_DEBUG(logger(), "result_callback");
         result_ = result;
@@ -488,13 +495,8 @@ inline NodeStatus RosActionNode<T>::tick()
       }
     }
 
-    // SECOND case: onFeedback requested a stop
-    if(on_feedback_state_change_ != NodeStatus::RUNNING)
-    {
-      cancelGoal();
-      return on_feedback_state_change_;
-    }
-    // THIRD case: result received, requested a stop
+    // SECOND case: result received, requested a stop.
+    // Checked before the feedback case: a finished goal can't be cancelled.
     if(result_.code != rclcpp_action::ResultCode::UNKNOWN)
     {
       bool is_default_result = true;
@@ -534,6 +536,12 @@ inline NodeStatus RosActionNode<T>::tick()
         return CheckStatus(onResultReceived(result_));
       }
     }
+    // THIRD case: onFeedback requested a stop
+    if(on_feedback_state_change_ != NodeStatus::RUNNING)
+    {
+      cancelGoalLocked();
+      return on_feedback_state_change_;
+    }
   }
   return NodeStatus::RUNNING;
 }
@@ -551,13 +559,44 @@ inline void RosActionNode<T>::halt()
 template <class T>
 inline void RosActionNode<T>::cancelGoal()
 {
+  std::unique_lock<std::mutex> lock(getMutex());
+  cancelGoalLocked();
+}
+
+template <class T>
+inline void RosActionNode<T>::cancelGoalLocked()
+{
   auto& executor = client_instance_->callback_executor;
 
-  // block until we get the goal handle (need it to cancel)
-  if(!goal_received_)
+  // The executor may be shared with other nodes using the same action client; one of
+  // them may already have processed our result. Once the result is processed, the
+  // client forgets the goal handle and cancelling it would throw UnknownGoalHandleError.
+  auto result_received = [this]() {
+    return result_.code != rclcpp_action::ResultCode::UNKNOWN;
+  };
+
+  if(result_received())
   {
+    return;
+  }
+
+  // block until we get the goal handle (need it to cancel)
+  if(!goal_handle_)
+  {
+    if(!future_goal_handle_.valid())
+    {
+      RCLCPP_WARN(logger(), "cancelGoal called on an empty goal_handle");
+      return;
+    }
     // process callbacks until future returns a valid goal handle or timeout
-    executor.spin_until_future_complete(future_goal_handle_, std::chrono::milliseconds(2000));
+    auto ret = executor.spin_until_future_complete(future_goal_handle_, server_timeout_);
+    if(ret != rclcpp::FutureReturnCode::SUCCESS)
+    {
+      // In that case the goal was not accepted or timed out so probably we should do nothing.
+      RCLCPP_WARN(logger(), "Goal response not received while cancelling [%s]",
+                  action_name_.c_str());
+      return;
+    }
 
     // update variables
     goal_received_ = true;
@@ -565,41 +604,36 @@ inline void RosActionNode<T>::cancelGoal()
     future_goal_handle_ = {};
 
     // if no goal handle the goal was rejected
-    if(!goal_handle_)
+    if(!goal_handle_ || result_received())
     {
       return;
     }
   }
 
-  if(!goal_handle_)
+  using action_msgs::msg::GoalStatus;
+  const auto goal_status = goal_handle_->get_status();
+  if(goal_status == GoalStatus::STATUS_SUCCEEDED ||
+     goal_status == GoalStatus::STATUS_CANCELED || goal_status == GoalStatus::STATUS_ABORTED)
   {
-    if(future_goal_handle_.valid())
-    {
-      // Here the discussion is if we should block or put a timer for the waiting
-      auto ret =
-          executor.spin_until_future_complete(future_goal_handle_, server_timeout_);
-      if(ret != rclcpp::FutureReturnCode::SUCCESS)
-      {
-        // In that case the goal was not accepted or timed out so probably we should do nothing.
-        return;
-      }
-      else
-      {
-        goal_handle_ = future_goal_handle_.get();
-        future_goal_handle_ = {};
-      }
-    }
-    else
-    {
-      RCLCPP_WARN(logger(), "cancelGoal called on an empty goal_handle");
-      return;
-    }
+    return;
   }
 
   auto& action_client = client_instance_->action_client;
 
-  auto future_result = action_client->async_get_result(goal_handle_);
-  auto future_cancel = action_client->async_cancel_goal(goal_handle_);
+  std::shared_future<WrappedResult> future_result;
+  std::shared_future<typename ActionClient::CancelResponse::SharedPtr> future_cancel;
+  try
+  {
+    future_result = action_client->async_get_result(goal_handle_);
+    future_cancel = action_client->async_cancel_goal(goal_handle_);
+  }
+  catch(const rclcpp_action::exceptions::UnknownGoalHandleError&)
+  {
+    // the result was processed in the meantime, nothing to cancel
+    RCLCPP_DEBUG(logger(), "Goal of [%s] already finished, not cancelling",
+                 action_name_.c_str());
+    return;
+  }
 
   constexpr auto SUCCESS = rclcpp::FutureReturnCode::SUCCESS;
 
