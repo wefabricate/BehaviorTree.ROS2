@@ -302,7 +302,11 @@ inline NodeStatus RosTopicSubNode<T>::tick()
   if(!topic_name.empty() && topic_name != "__default__placeholder__" &&
      topic_name != topic_name_)
   {
+    // The topic changed: ensure no remanents from old topic
+    signal_connection_.disconnect();
     sub_instance_.reset();
+    last_msg_.reset();
+    failure_count_ = 0;
   }
 
   if(!sub_instance_)
